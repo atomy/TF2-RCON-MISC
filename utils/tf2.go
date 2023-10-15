@@ -126,7 +126,7 @@ func GrokParsePlayerName(rconNameResponse string) (string, error) {
 	processed := strings.ReplaceAll(strings.ReplaceAll(rconNameResponse, "\n", ""), " ", "")
 	playerNameMap := gcPlayerName.ParseString(processed)
 	if len(playerNameMap) == 0 {
-		return "", errors.New("You player name could not be parsed")
+		return "", errors.New("your player name could not be parsed")
 	}
 	playerName := removeQuotes(playerNameMap["playerName"])
 	return playerName, nil
