@@ -19,7 +19,8 @@ import (
 const (
 	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{MINUTE:connectedMin}:%{SECOND:connectedSec} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
 	grokPlayerNamePatten = `%{QS}=%{QS:playerName}\(def\.%{QS}\)%{GREEDYDATA}`
-	chatPattern          = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?\s{1}%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
+	grokChatPattern      = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?\s{1}%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
+	grokLobbyPattern     = `^ +%{WORD:memberType}\[[0-9]+\] +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +team = %{WORD:team} +type = %{WORD:type}$`
 )
 
 var (
@@ -29,6 +30,8 @@ var (
 	gcPlayerName *grok.CompiledGrok
 	gChat        *grok.Grok
 	gcChat       *grok.CompiledGrok
+	gLobby       *grok.Grok
+	gcLobby      *grok.CompiledGrok
 )
 
 // PlayerInfo is a struct containing all the info we need about a player
@@ -43,12 +46,23 @@ type PlayerInfo struct {
 	Loss          int
 	State         string
 	LastSeen      int64
+	Team          string
+	MemberType    string
+	Type          string
 }
 
 // ChatInfo is a struct containing all the info we need about a chat message
 type ChatInfo struct {
 	PlayerName string
 	Message    string
+}
+
+// LobbyDebugPlayer is a struct holding all the fields that come with tf_lobby_debug response
+type LobbyDebugPlayer struct {
+	MemberType string
+	SteamID    int64
+	Team       string
+	Type       string
 }
 
 /**
@@ -67,7 +81,11 @@ func GrokInit() {
 
 	// Compile the chat grok pattern
 	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true})
-	gcChat, _ = gChat.Compile(chatPattern)
+	gcChat, _ = gChat.Compile(grokChatPattern)
+
+	// Compile the lobby grok pattern
+	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true})
+	gcLobby, _ = gLobby.Compile(grokLobbyPattern)
 }
 
 // GrokParse parses the given line with the main grok pattern
@@ -149,6 +167,29 @@ func GrokParseChat(line string) (*ChatInfo, error) {
 	}
 
 	return &chatInfo, nil
+}
+
+// GrokParseLobby parses the given line with the lobby grok pattern
+func GrokParseLobby(line string) (LobbyDebugPlayer, error) {
+	parsed := gcLobby.ParseString(line)
+
+	if len(parsed) == 0 {
+		return LobbyDebugPlayer{}, errors.New("failed to parse lobby-player-response line: " + line)
+	}
+
+	steamID32, err := strconv.ParseInt(parsed["steamID32"], 10, 32)
+	if err != nil {
+		return LobbyDebugPlayer{}, errors.New("failed to parse SteamID32")
+	}
+
+	lobbyPlayer := LobbyDebugPlayer{
+		MemberType: parsed["memberType"],
+		SteamID:    Steam3IDToSteam64(steamID32),
+		Team:       parsed["team"],
+		Type:       parsed["type"],
+	}
+
+	return lobbyPlayer, nil
 }
 
 // EmptyLog empties the tf2 log file
@@ -241,4 +282,43 @@ func removeQuotes(str string) string {
 // trim newlines, and tabs from string
 func TrimCommon(in string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(in, "\n"), "\r")
+}
+
+// ParseLobbyResponse takes the complete response-string and parses all players in it and returns them as LobbyDebugPlayer slice
+func ParseLobbyResponse(in string) []LobbyDebugPlayer {
+	// Split the string into lines using the newline character as the delimiter
+	lines := strings.Split(in, "\n")
+
+	var lobbyPlayers []LobbyDebugPlayer
+
+	// Iterate over the lines in the slice and print them
+	for _, line := range lines {
+		// Skip empty lines
+		if len(line) <= 0 {
+			continue
+		}
+
+		lobbyPlayerParsed, err := GrokParseLobby(line)
+
+		// Only add the elements without errors.
+		if err == nil {
+			lobbyPlayers = append(lobbyPlayers, lobbyPlayerParsed)
+		}
+	}
+
+	return lobbyPlayers
+}
+
+// FindLobbyPlayerBySteamId searches for the given steamID within the supplied slice, if found, returns it
+func FindLobbyPlayerBySteamId(lobbyPlayers []LobbyDebugPlayer, steamID int64) *LobbyDebugPlayer {
+	// fmt.Printf("Searching for player '%s', in elements '%d'...\n", steamID, len(lobbyPlayers))
+
+	// Iterate over the players in the slice
+	for _, lobbyPlayer := range lobbyPlayers {
+		if lobbyPlayer.SteamID == steamID {
+			return &lobbyPlayer
+		}
+	}
+
+	return nil
 }

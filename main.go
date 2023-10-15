@@ -17,6 +17,9 @@ import (
 // Slice of player info cache struct that holds the player info
 var playersInGame []*utils.PlayerInfo
 
+// Holds the last tf_lobby_debug response for usage.
+var lastLobbyDebugResponse string
+
 var websocketConnection *websocket.Conn
 
 func main() {
@@ -81,6 +84,11 @@ func main() {
 			log.Printf("Executing *status* command after line: %s", line.Text)
 
 			// Run the status command when the lobby is updated or a player connects
+			// Needs to be done before *status* or else it wont work
+			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
+			// log.Println("tf_lobby_debug response:", lastLobbyDebugResponse)
+
+			// Fire and forget, we get no response from that, we need to read console.log for that.
 			network.RconExecute("status")
 		}
 
@@ -116,6 +124,20 @@ func main() {
 
 // Update player collection with supplied new playerInfo entity.
 func updatePlayers(playerInfo *utils.PlayerInfo) {
+	var lobbyPlayers []utils.LobbyDebugPlayer
+
+	if "Failed to find lobby shared object" != lastLobbyDebugResponse {
+		lobbyPlayers = utils.ParseLobbyResponse(lastLobbyDebugResponse)
+	}
+
+	lobbyPlayer := utils.FindLobbyPlayerBySteamId(lobbyPlayers, playerInfo.SteamID)
+
+	if lobbyPlayer != nil {
+		playerInfo.Team = lobbyPlayer.Team
+		playerInfo.Type = lobbyPlayer.Type
+		playerInfo.MemberType = lobbyPlayer.MemberType
+	}
+
 	// Check if the player already exists in the list
 	for i, existingPlayer := range playersInGame {
 		if existingPlayer.SteamID == playerInfo.SteamID {

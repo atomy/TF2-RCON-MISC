@@ -32,7 +32,10 @@ func scanPort(protocol, hostname string, port int) bool {
 		return false
 	}
 
-	defer RCONConnection.Close()
+	// Eventually close Rcon-Connection, ignore error.
+	defer func(RCONConnection net.Conn) {
+		_ = RCONConnection.Close()
+	}(RCONConnection)
 
 	return true
 }
@@ -116,9 +119,12 @@ func RconExecute(command string) string {
 
 	// Reconnect if the connection is lost (usually when joining a server)
 	if err != nil {
-		log.Printf("Unable to execute the command: %s because %v", command, err)
-		log.Println("Connection failed, retrying...")
-		rconConnect(rconHost)
+		// Ignore errors on tf_lobby_debug
+		if command != "tf_lobby_debug" {
+			log.Printf("Unable to execute the command: %s because %v", command, err)
+			log.Println("Connection failed, retrying...")
+			rconConnect(rconHost)
+		}
 	}
 
 	return response
