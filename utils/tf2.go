@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nxadm/tail"
 	"github.com/trivago/grok"
@@ -16,7 +17,7 @@ import (
 
 // Global variables
 const (
-	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{MINUTE}:%{SECOND} +%{NUMBER} +%{NUMBER} +%{WORD}$`
+	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{MINUTE:connectedMin}:%{SECOND:connectedSec} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
 	grokPlayerNamePatten = `%{QS}=%{QS:playerName}\(def\.%{QS}\)%{GREEDYDATA}`
 	chatPattern          = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?\s{1}%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
 )
@@ -37,6 +38,11 @@ type PlayerInfo struct {
 	UserID        int
 	SteamAccType  string
 	SteamUniverse int
+	Connected     string
+	Ping          int
+	Loss          int
+	State         string
+	LastSeen      int64
 }
 
 // ChatInfo is a struct containing all the info we need about a chat message
@@ -66,8 +72,7 @@ func GrokInit() {
 
 // GrokParse parses the given line with the main grok pattern
 func GrokParse(line string) (*PlayerInfo, error) {
-
-	parsed := gc.ParseString(line)
+	parsed := gc.ParseString(TrimCommon(line))
 
 	if len(parsed) == 0 {
 		return nil, errors.New("failed to parse line")
@@ -89,12 +94,27 @@ func GrokParse(line string) (*PlayerInfo, error) {
 		return nil, errors.New("failed to parse SteamID32")
 	}
 
+	ping, err := strconv.Atoi(parsed["ping"])
+	if err != nil {
+		return nil, errors.New("failed to parse ping")
+	}
+
+	loss, err := strconv.Atoi(parsed["loss"])
+	if err != nil {
+		return nil, errors.New("failed to parse loss")
+	}
+
 	playerData := PlayerInfo{
 		SteamID:       Steam3IDToSteam64(steamID32),
 		Name:          removeQuotes(parsed["userName"]),
 		UserID:        userID,
 		SteamAccType:  parsed["steamAccType"],
 		SteamUniverse: steamUniverse,
+		Connected:     parsed["connectedMin"] + ":" + parsed["connectedSec"],
+		Ping:          ping,
+		Loss:          loss,
+		State:         parsed["state"],
+		LastSeen:      time.Now().Unix(),
 	}
 
 	return &playerData, nil
@@ -106,7 +126,7 @@ func GrokParsePlayerName(rconNameResponse string) (string, error) {
 	processed := strings.ReplaceAll(strings.ReplaceAll(rconNameResponse, "\n", ""), " ", "")
 	playerNameMap := gcPlayerName.ParseString(processed)
 	if len(playerNameMap) == 0 {
-		return "", errors.New("You player name could not be parsed")
+		return "", errors.New("your player name could not be parsed")
 	}
 	playerName := removeQuotes(playerNameMap["playerName"])
 	return playerName, nil
@@ -163,14 +183,14 @@ func LogPathDection() string {
 		case "linux":
 
 			// Get current os user name
-			user, err := user.Current()
+			currentUser, err := user.Current()
 			if err != nil {
 				log.Fatalf("Unable to determin the current OS User: %v", err)
 			}
-			osUSerName := user.Username
+			osUserName := currentUser.Username
 
-			log.Println("OS User: ", osUSerName)
-			tf2LogPath = `/home/` + osUSerName + `/.local/share/Steam/steamapps/common/Team Fortress 2/tf/console.log`
+			log.Println("OS User: ", osUserName)
+			tf2LogPath = `/home/` + osUserName + `/.local/share/Steam/steamapps/common/Team Fortress 2/tf/console.log`
 			log.Printf("Linux Detected. Log Path Defaulting to: \n%s\n", tf2LogPath)
 
 		default:
@@ -216,4 +236,9 @@ func Steam3IDToSteam64(steam3ID int64) int64 {
 // removeQuotes removes all quotes from a string
 func removeQuotes(str string) string {
 	return strings.ReplaceAll(str, "\"", "")
+}
+
+// trim newlines, and tabs from string
+func TrimCommon(in string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(in, "\n"), "\r")
 }
