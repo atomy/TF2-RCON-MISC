@@ -119,8 +119,9 @@ func RconExecute(command string) string {
 
 	// Reconnect if the connection is lost (usually when joining a server)
 	if err != nil {
-		// Ignore errors on tf_lobby_debug
-		if command != "tf_lobby_debug" {
+		// Ignore errors on tf_lobby_debug, they seem to happen almost always
+		// Ignore also on status, could be lobby-related, cause I was still getting errors
+		if command != "tf_lobby_debug" && command != "status" {
 			log.Printf("Unable to execute the command: %s because %v", command, err)
 			log.Println("Connection failed, retrying...")
 			rconConnect(rconHost)

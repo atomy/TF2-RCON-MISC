@@ -19,6 +19,7 @@ var playersInGame []*utils.PlayerInfo
 
 // Holds the last tf_lobby_debug response for usage.
 var lastLobbyDebugResponse string
+var lastUpdate int64
 
 var websocketConnection *websocket.Conn
 
@@ -63,6 +64,9 @@ func main() {
 		log.Fatalf("Unable to tail the log file: %v", err)
 	}
 
+	// Start player watcher.
+	go startUpdatePlayerWatcher()
+
 	// Loop through the text of each received line
 	for line := range t.Lines {
 
@@ -81,7 +85,7 @@ func main() {
 		// Refresh player list logic
 		// Dont assume status headlines as player connects
 		if strings.Contains(line.Text, "Lobby updated") || (strings.Contains(line.Text, "connected") && !strings.Contains(line.Text, "uniqueid")) {
-			log.Printf("Executing *status* command after line: %s", line.Text)
+			log.Printf("Executing *status* + *tf_lobby_debug* command after line: %s", line.Text)
 
 			// Run the status command when the lobby is updated or a player connects
 			// Needs to be done before *status* or else it wont work
@@ -142,16 +146,47 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	for i, existingPlayer := range playersInGame {
 		if existingPlayer.SteamID == playerInfo.SteamID {
 			// Player already exists, update the fields
+			// Preserve tf-lobby-fields if new ones are empty
+			if len(playerInfo.Team) <= 0 {
+				playerInfo.Team = playersInGame[i].Team
+			}
+
+			if len(playerInfo.Type) <= 0 {
+				playerInfo.Team = playersInGame[i].Type
+			}
+
+			if len(playerInfo.MemberType) <= 0 {
+				playerInfo.Team = playersInGame[i].MemberType
+			}
+
 			playersInGame[i] = playerInfo
 			return
 		}
 	}
 
 	playersInGame = append(playersInGame, playerInfo)
+	lastUpdate = time.Now().Unix()
 }
 
 // Callback that is called once websocket-connection has been established.
 func onWebsocketConnectCallback(c *websocket.Conn) {
 	websocketConnection = c
 	network.SendPlayers(c, playersInGame)
+}
+
+// updatePlayerWatcher, initializes player updates every 10 seconds if there have been none
+func startUpdatePlayerWatcher() {
+	for {
+		// Sleep for 10 seconds
+		time.Sleep(10 * time.Second)
+
+		// Check when last update happened.
+		if (lastUpdate + 10) < time.Now().Unix() {
+			log.Println("Executing *status* + *tf_lobby_debug* command after scheduled 10s")
+			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
+			network.RconExecute("status")
+		} else {
+			log.Printf("No update necessary, last one happened '%d' seconds ago!\n", time.Now().Unix()-lastUpdate)
+		}
+	}
 }
