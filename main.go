@@ -88,7 +88,7 @@ func main() {
 			log.Printf("Executing *status* + *tf_lobby_debug* command after line: %s", line.Text)
 
 			// Run the status command when the lobby is updated or a player connects
-			// Needs to be done before *status* or else it wont work
+			// Needs to be done before *status* or else it won't work
 			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
 			// log.Println("tf_lobby_debug response:", lastLobbyDebugResponse)
 
@@ -137,6 +137,7 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	lobbyPlayer := utils.FindLobbyPlayerBySteamId(lobbyPlayers, playerInfo.SteamID)
 
 	if lobbyPlayer != nil {
+		//log.Printf("dbg: %+v\n", lobbyPlayer)
 		playerInfo.Team = lobbyPlayer.Team
 		playerInfo.Type = lobbyPlayer.Type
 		playerInfo.MemberType = lobbyPlayer.MemberType

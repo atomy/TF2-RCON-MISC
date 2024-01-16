@@ -17,7 +17,7 @@ import (
 
 // Global variables
 const (
-	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{MINUTE:connectedMin}:%{SECOND:connectedSec} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
+	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{CONNECTED_TIME:connectedTime} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
 	grokPlayerNamePatten = `%{QS}=%{QS:playerName}\(def\.%{QS}\)%{GREEDYDATA}`
 	grokChatPattern      = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?\s{1}%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
 	grokLobbyPattern     = `^ +%{WORD:memberType}\[[0-9]+\] +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +team = %{WORD:team} +type = %{WORD:type}$`
@@ -65,6 +65,10 @@ type LobbyDebugPlayer struct {
 	Type       string
 }
 
+var GrokDefinitions = map[string]string{
+	"CONNECTED_TIME": `(?:[0-9:]*)(?:[0-5][0-9]):(?:[0-5][0-9])`,
+}
+
 /**
 * Exported functions need to start with a capital letter
 **/
@@ -72,19 +76,19 @@ type LobbyDebugPlayer struct {
 // GrokInit initializes and compiles the grok patterns
 func GrokInit() {
 	// Compile the main grok pattern
-	g, _ = grok.New(grok.Config{NamedCapturesOnly: true})
+	g, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gc, _ = g.Compile(grokPattern)
 
 	// Compile the player name grok pattern
-	gPlayerName, _ = grok.New(grok.Config{NamedCapturesOnly: true})
+	gPlayerName, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcPlayerName, _ = gPlayerName.Compile(grokPlayerNamePatten)
 
 	// Compile the chat grok pattern
-	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true})
+	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcChat, _ = gChat.Compile(grokChatPattern)
 
 	// Compile the lobby grok pattern
-	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true})
+	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcLobby, _ = gLobby.Compile(grokLobbyPattern)
 }
 
@@ -128,7 +132,7 @@ func GrokParse(line string) (*PlayerInfo, error) {
 		UserID:        userID,
 		SteamAccType:  parsed["steamAccType"],
 		SteamUniverse: steamUniverse,
-		Connected:     parsed["connectedMin"] + ":" + parsed["connectedSec"],
+		Connected:     parsed["connectedTime"],
 		Ping:          ping,
 		Loss:          loss,
 		State:         parsed["state"],
