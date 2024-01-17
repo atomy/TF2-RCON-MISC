@@ -183,7 +183,6 @@ func GrokParseChat(line string) (*ChatInfo, error) {
 
 // GrokParseLobby parses the given line with the lobby grok pattern
 func GrokParseLobby(line string) (LobbyDebugPlayer, error) {
-	println("Parsing line: " + line)
 	parsed := gcLobby.ParseString(line)
 
 	if len(parsed) == 0 {
