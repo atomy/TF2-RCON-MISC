@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/algo7/tf2_rcon_misc/commands"
@@ -12,7 +16,7 @@ import (
 	"github.com/algo7/tf2_rcon_misc/utils"
 )
 
-// Const console message that informs you about forceful autobalance.
+// Const console message that informs you about forceful auto-balance.
 //const teamSwitchMessage = "You have switched to team BLU and will receive 500 experience points at the end of the round for changing teams."
 
 // playersInGame is a slice of player info cache struct that holds the player info
@@ -25,6 +29,25 @@ var lastUpdate int64
 var websocketConnection *websocket.Conn
 
 func main() {
+	signals := setupSignalHandler()
+
+	// Goroutine to handle signals
+	go func() {
+		sig := <-signals
+		fmt.Println("Signal received:", sig)
+
+		// Notify the main logic to shut down
+		// Perform cleanup or shutdown procedures
+		fmt.Println("Performing graceful shutdown.")
+
+		if network.HttpServer != nil {
+			_ = network.HttpServer.Close()
+			fmt.Println("HttpServer closed.")
+		}
+
+		os.Exit(0)
+	}()
+
 	// Start websocket for IPC with UI-Client
 	go network.StartWebsocket(27689, onWebsocketConnectCallback)
 
@@ -46,7 +69,7 @@ func main() {
 		log.Fatalf("%v Please restart the program", err)
 	}
 
-	log.Printf("Current plyaer is %s", currentPlayer)
+	log.Printf("Current player is %s", currentPlayer)
 
 	// Get log path
 	tf2LogPath := utils.LogPathDection()
@@ -72,7 +95,7 @@ func main() {
 	for line := range t.Lines {
 
 		// Refresh player list logic
-		// Dont assume status headlines as player connects
+		// Don't assume status headlines as player connects
 		if strings.Contains(line.Text, "Lobby updated") || (strings.Contains(line.Text, "connected") && !strings.Contains(line.Text, "uniqueid")) {
 			log.Printf("Executing *status* command after line: %s", line.Text)
 
@@ -196,4 +219,14 @@ func startUpdatePlayerWatcher() {
 			log.Printf("No update necessary, last one happened '%d' seconds ago!\n", time.Now().Unix()-lastUpdate)
 		}
 	}
+}
+
+// setupSignalHandler Sets up a signal handler to termination from the outside.
+func setupSignalHandler() chan os.Signal {
+	// Setting up channel to listen for signals
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+
+	// Channel to notify the main logic to shut down
+	return signals
 }

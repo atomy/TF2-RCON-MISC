@@ -6,33 +6,41 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
 
 type CallbackFunc func(*websocket.Conn)
 
+type Message struct {
+	Type string `json:"type"`
+}
+
 const wsPath = "/websocket"
+
+var HttpServer *http.Server // Exported by capitalizing the first letter
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		allowedOrigin := "http://localhost:1212"
-		return r.Header.Get("Origin") == allowedOrigin
+		return true
 	},
 }
 var onConnectCallback CallbackFunc
 
+// StartWebsocket Startup websocket server for communication with electron UI.
 func StartWebsocket(port int, callback CallbackFunc) {
 	http.HandleFunc(wsPath, handleWebSocket)
 	onConnectCallback = callback
 
+	HttpServer = &http.Server{Addr: "127.0.0.1:" + strconv.Itoa(port)}
+
 	log.Printf("Starting websocket for IPC communication on path '%s' and port '%d'", wsPath, port)
 
 	// Start your HTTP server
-	err := http.ListenAndServe("127.0.0.1:"+strconv.Itoa(port), nil)
-	if err != nil {
+	if err := HttpServer.ListenAndServe(); err != http.ErrServerClosed {
 		log.Panicf("ERROR while creating HTTP server: %v", err)
 		return
 	}
@@ -86,7 +94,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			errStr := err.Error()
 
 			// Ignore connection closes
-			if strings.Contains(errStr, "close 1005") {
+			if strings.Contains(errStr, "close ") {
 				log.Printf("CLOSED connection from '%s' was closed", r.RemoteAddr)
 			} else {
 				log.Panicf("ERROR while reading websocket message: %v", err)
@@ -96,7 +104,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Process the received message
-		processMessage(messageType, p)
+		processRawMessage(messageType, p)
 
 		// Example: Echo back the message
 		if err := conn.WriteMessage(messageType, p); err != nil {
@@ -106,14 +114,23 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 // Process incoming websocket message
-func processMessage(messageType int, p []byte) {
+func processRawMessage(messageType int, p []byte) {
 	switch messageType {
 	case websocket.TextMessage:
 		// Handle text message
 		text := string(p)
 		log.Printf("Received message over websockets: %s", text)
-		// Process 'text' as needed
 
+		// Decode JSON
+		var msg Message
+		err := json.Unmarshal([]byte(text), &msg)
+
+		if err != nil {
+			log.Printf("Error decoding JSON: %s", err)
+			return
+		}
+
+		processJsonMessage(msg)
 	case websocket.BinaryMessage:
 		// Handle binary message
 		log.Printf("Received BinaryMessage over websockets.")
@@ -137,5 +154,13 @@ func processMessage(messageType int, p []byte) {
 	default:
 		log.Printf("Received message over websockets, type: %v - message: %v", messageType, p)
 		// Handle other message types or ignore them
+	}
+}
+
+// processJsonMessage Process incomming message over websockets that has already been json-decoded into a struct.
+func processJsonMessage(msg Message) {
+	// Exit message, telling us to shut down.
+	if msg.Type == "exit" {
+		os.Exit(0)
 	}
 }
