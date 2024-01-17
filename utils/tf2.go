@@ -21,6 +21,7 @@ const (
 	grokPlayerNamePattern = `%{QS}%{SPACE}=%{SPACE}%{QS:playerName}%{SPACE}\(%{SPACE}def\.%{SPACE}%{QS}%{SPACE}\)%{GREEDYDATA}`
 	grokCommandPattern    = `!%{WORD:command}\s{1}%{GREEDYDATA:args}(?:\r?\n?)?$`
 	grokChatPattern       = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?(?:\s{1})?%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
+	grokLobbyPattern      = `^ +%{WORD:memberType}\[[0-9]+\] +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +team = %{WORD:team} +type = %{WORD:type}$`
 )
 
 var (
@@ -30,6 +31,7 @@ var (
 	gcPlayerName *grok.CompiledGrok
 	gChat        *grok.Grok
 	gcChat       *grok.CompiledGrok
+	gLobby       *grok.Grok
 	gcLobby      *grok.CompiledGrok
 	gCommands    *grok.Grok
 	gcCommands   *grok.CompiledGrok
@@ -87,6 +89,10 @@ func GrokInit() {
 	// Compile the chat grok pattern
 	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcChat, _ = gChat.Compile(grokChatPattern)
+
+	// Compile the lobby grok pattern
+	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
+	gcLobby, _ = gLobby.Compile(grokLobbyPattern)
 
 	// Compile the command grok pattern
 	gCommands, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
@@ -177,6 +183,7 @@ func GrokParseChat(line string) (*ChatInfo, error) {
 
 // GrokParseLobby parses the given line with the lobby grok pattern
 func GrokParseLobby(line string) (LobbyDebugPlayer, error) {
+	println("Parsing line: " + line)
 	parsed := gcLobby.ParseString(line)
 
 	if len(parsed) == 0 {
