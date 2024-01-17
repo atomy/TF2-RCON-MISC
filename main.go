@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algo7/tf2_rcon_misc/commands"
 	"github.com/algo7/tf2_rcon_misc/db"
 	"github.com/algo7/tf2_rcon_misc/network"
 	"github.com/algo7/tf2_rcon_misc/utils"
@@ -14,7 +15,7 @@ import (
 // Const console message that informs you about forceful autobalance.
 //const teamSwitchMessage = "You have switched to team BLU and will receive 500 experience points at the end of the round for changing teams."
 
-// Slice of player info cache struct that holds the player info
+// playersInGame is a slice of player info cache struct that holds the player info
 var playersInGame []*utils.PlayerInfo
 
 // Holds the last tf_lobby_debug response for usage.
@@ -39,13 +40,13 @@ func main() {
 
 	// Get the current player name
 	res := network.RconExecute("name")
-	playerName, err := utils.GrokParsePlayerName(res)
+	currentPlayer, err := utils.GrokParsePlayerName(res)
 
 	if err != nil {
 		log.Fatalf("%v Please restart the program", err)
 	}
 
-	log.Printf("Player Name: %s", playerName)
+	log.Printf("Current plyaer is %s", currentPlayer)
 
 	// Get log path
 	tf2LogPath := utils.LogPathDection()
@@ -70,39 +71,19 @@ func main() {
 	// Loop through the text of each received line
 	for line := range t.Lines {
 
-		// Parse the line for player info
-		playerInfo, err := utils.GrokParse(line.Text)
-		if err != nil {
-			// log.Printf("GrokParse error: %s at %v", line.Text, err)
-		}
-
-		// Parse the line for chat info
-		chat, err := utils.GrokParseChat(line.Text)
-		if err != nil {
-			// log.Printf("GrokParseChat error: %s at %v", line.Text, err)
-		}
-
 		// Refresh player list logic
 		// Dont assume status headlines as player connects
 		if strings.Contains(line.Text, "Lobby updated") || (strings.Contains(line.Text, "connected") && !strings.Contains(line.Text, "uniqueid")) {
-			log.Printf("Executing *status* + *tf_lobby_debug* command after line: %s", line.Text)
+			log.Printf("Executing *status* command after line: %s", line.Text)
 
+			// Clear the player list
+			playersInGame = []*utils.PlayerInfo{}
 			// Run the status command when the lobby is updated or a player connects
-			// Needs to be done before *status* or else it won't work
-			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
-			// log.Println("tf_lobby_debug response:", lastLobbyDebugResponse)
-
-			// Fire and forget, we get no response from that, we need to read console.log for that.
 			network.RconExecute("status")
 		}
 
-		if chat != nil {
-			log.Printf("Chat: %+v\n", *chat)
-		}
-
-		// Save to DB logic
-		if playerInfo != nil {
-
+		// Parse the line for player info
+		if playerInfo, err := utils.GrokParse(line.Text); err == nil {
 			log.Printf("%+v\n", *playerInfo)
 
 			// Append the player to the player list
@@ -121,6 +102,31 @@ func main() {
 			// When websocket connected, send over the new players
 			if websocketConnection != nil {
 				network.SendPlayers(websocketConnection, playersInGame)
+			}
+		}
+
+		// Parse the line for chat info
+		if chat, err := utils.GrokParseChat(line.Text); err == nil {
+
+			log.Printf("Chat: %+v\n", *chat)
+
+			// Parse the chat message for commands
+			if command, args, err := utils.GrokParseCommand(chat.Message); err == nil {
+				commands.CommandExecuted(command, args, chat.PlayerName, currentPlayer)
+			}
+
+			// Get the player's steamID64 from the playersInGame
+			steamID, err := utils.GetSteamIDFromPlayerName(chat.PlayerName, playersInGame)
+
+			if err == nil {
+				// Create a chat document for inserting into MongoDB
+				chatInfo := db.Chat{
+					SteamID:   steamID,
+					Name:      chat.PlayerName,
+					Message:   chat.Message,
+					UpdatedAt: time.Now().UnixNano(),
+				}
+				db.AddChat(chatInfo)
 			}
 		}
 	}
@@ -169,13 +175,13 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	lastUpdate = time.Now().Unix()
 }
 
-// Callback that is called once websocket-connection has been established.
+// onWebsocketConnectCallback Callback that is called once websocket-connection has been established.
 func onWebsocketConnectCallback(c *websocket.Conn) {
 	websocketConnection = c
 	network.SendPlayers(c, playersInGame)
 }
 
-// updatePlayerWatcher, initializes player updates every 10 seconds if there have been none
+// startUpdatePlayerWatcher Initializes player updates every 10 seconds if there have been none.
 func startUpdatePlayerWatcher() {
 	for {
 		// Sleep for 10 seconds

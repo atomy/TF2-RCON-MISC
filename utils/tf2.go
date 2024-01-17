@@ -17,10 +17,10 @@ import (
 
 // Global variables
 const (
-	grokPattern          = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{CONNECTED_TIME:connectedTime} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
-	grokPlayerNamePatten = `%{QS}=%{QS:playerName}\(def\.%{QS}\)%{GREEDYDATA}`
-	grokChatPattern      = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?\s{1}%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
-	grokLobbyPattern     = `^ +%{WORD:memberType}\[[0-9]+\] +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +team = %{WORD:team} +type = %{WORD:type}$`
+	grokPattern           = `^# +%{NUMBER:userId} %{QS:userName} +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +%{CONNECTED_TIME:connectedTime} +%{NUMBER:ping} +%{NUMBER:loss} +%{WORD:state}$`
+	grokPlayerNamePattern = `%{QS}%{SPACE}=%{SPACE}%{QS:playerName}%{SPACE}\(%{SPACE}def\.%{SPACE}%{QS}%{SPACE}\)%{GREEDYDATA}`
+	grokCommandPattern    = `!%{WORD:command}\s{1}%{GREEDYDATA:args}(?:\r?\n?)?$`
+	grokChatPattern       = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?(?:\s{1})?%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
 )
 
 var (
@@ -30,8 +30,9 @@ var (
 	gcPlayerName *grok.CompiledGrok
 	gChat        *grok.Grok
 	gcChat       *grok.CompiledGrok
-	gLobby       *grok.Grok
 	gcLobby      *grok.CompiledGrok
+	gCommands    *grok.Grok
+	gcCommands   *grok.CompiledGrok
 )
 
 // PlayerInfo is a struct containing all the info we need about a player
@@ -81,15 +82,15 @@ func GrokInit() {
 
 	// Compile the player name grok pattern
 	gPlayerName, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
-	gcPlayerName, _ = gPlayerName.Compile(grokPlayerNamePatten)
+	gcPlayerName, _ = gPlayerName.Compile(grokPlayerNamePattern)
 
 	// Compile the chat grok pattern
 	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcChat, _ = gChat.Compile(grokChatPattern)
 
-	// Compile the lobby grok pattern
-	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
-	gcLobby, _ = gLobby.Compile(grokLobbyPattern)
+	// Compile the command grok pattern
+	gCommands, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
+	gcCommands, _ = gCommands.Compile(grokCommandPattern)
 }
 
 // GrokParse parses the given line with the main grok pattern
@@ -144,8 +145,8 @@ func GrokParse(line string) (*PlayerInfo, error) {
 
 // GrokParsePlayerName parses the given line with the playerName grok pattern
 func GrokParsePlayerName(rconNameResponse string) (string, error) {
-	// Remove all newlines and spaces from the string
-	processed := strings.ReplaceAll(strings.ReplaceAll(rconNameResponse, "\n", ""), " ", "")
+	// Remove all newlinesfrom the string
+	processed := strings.ReplaceAll(rconNameResponse, "\n", "")
 	playerNameMap := gcPlayerName.ParseString(processed)
 	if len(playerNameMap) == 0 {
 		return "", errors.New("your player name could not be parsed")
@@ -165,9 +166,10 @@ func GrokParseChat(line string) (*ChatInfo, error) {
 
 	playerName := parsed["player_name"]
 	message := parsed["message"]
+	messageTrimmed := strings.TrimRight(message, "\r\n")
 	chatInfo := ChatInfo{
 		PlayerName: playerName,
-		Message:    message,
+		Message:    messageTrimmed,
 	}
 
 	return &chatInfo, nil
@@ -194,6 +196,34 @@ func GrokParseLobby(line string) (LobbyDebugPlayer, error) {
 	}
 
 	return lobbyPlayer, nil
+}
+
+// GrokParseCommand parses the given line with the command grok pattern
+func GrokParseCommand(line string) (string, string, error) {
+
+	parsed := gcCommands.ParseString(line)
+
+	if len(parsed) == 0 {
+		return "", "", errors.New("failed to parse command line")
+	}
+
+	command := parsed["command"]
+	args := parsed["args"]
+	argsTrimmed := strings.TrimRight(args, "\r\n")
+
+	return command, argsTrimmed, nil
+}
+
+// GetSteamIDFromPlayerName gets the steamID64 from a player name cache
+func GetSteamIDFromPlayerName(playerName string, playersInfo []*PlayerInfo) (int64, error) {
+
+	for _, playerInfo := range playersInfo {
+		if playerInfo.Name == playerName {
+			return playerInfo.SteamID, nil
+		}
+	}
+
+	return 0, errors.New("Player not found")
 }
 
 // EmptyLog empties the tf2 log file

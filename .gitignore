@@ -1,10 +1,10 @@
 # Binaries for programs and plugins
-*.exe
+# *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-*.bin
+# *.bin
 # Test binary, built with `go test -c`
 *.test
 main
@@ -21,3 +21,4 @@ run2.sh
 runDystopia2.bat
 runDystopia2.sh
 runCounterstrike2.bat
+runDev.bat
