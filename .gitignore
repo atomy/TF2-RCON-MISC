@@ -22,4 +22,5 @@ runDystopia2.bat
 runDystopia2.sh
 runCounterstrike2.bat
 runDev.bat
+runDevNoDb.bat
 runDev.sh

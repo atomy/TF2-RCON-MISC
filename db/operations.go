@@ -33,6 +33,11 @@ type Chat struct {
 // AddPlayer adds a player to the database
 func AddPlayer(player Player) *mongo.UpdateResult {
 
+	// Check if database is enabled.
+	if client == nil {
+		return nil
+	}
+
 	// If the URI is empty, use the default
 	if mongoDBName == "" {
 		mongoDBName = "TF2"
@@ -68,6 +73,11 @@ func AddPlayer(player Player) *mongo.UpdateResult {
 
 // AddChat adds a chat message to the database
 func AddChat(chat Chat) *mongo.InsertOneResult {
+
+	// Check if database is enabled.
+	if client == nil {
+		return nil
+	}
 
 	// If the URI is empty, use the default
 	if mongoDBName == "" {

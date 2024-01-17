@@ -22,7 +22,8 @@ func connect() *mongo.Client {
 
 	// If the URI is empty, use the default
 	if mongoURI == "" {
-		mongoURI = "mongodb://localhost:27017"
+		log.Println("MongoDB not set, disabling database support.")
+		return nil
 	}
 
 	// Use the SetServerAPIOptions() method to set the Stable API version to 1
