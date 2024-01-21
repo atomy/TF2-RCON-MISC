@@ -54,6 +54,12 @@ type PlayerInfo struct {
 	Type          string
 }
 
+// PlayerUpdate is a struct for player-updates over websockets, it has its dedicated type
+type PlayerUpdate struct {
+	Type           string        `json:"type"`
+	CurrentPlayers []*PlayerInfo `json:"current-players"`
+}
+
 // ChatInfo is a struct containing all the info we need about a chat message
 type ChatInfo struct {
 	PlayerName string

@@ -46,21 +46,26 @@ func StartWebsocket(port int, callback CallbackFunc) {
 	}
 }
 
-// Send players over the wire as JSON.
+// SendPlayers Send players encapsulated in a player-update over the wire as JSON.
 func SendPlayers(c *websocket.Conn, players []*utils.PlayerInfo) {
 	if len(players) == 0 {
 		log.Printf("SendPlayers() Player slice is empty, not sending")
 		return
 	}
 
+	playerUpdate := utils.PlayerUpdate{
+		Type:           "player-update",
+		CurrentPlayers: players,
+	}
+
 	// Convert the player data to a JSON string
-	jsonData, err := json.Marshal(players)
+	jsonData, err := json.Marshal(playerUpdate)
 	if err != nil {
 		log.Panicf("ERROR while marshalling players as JSON: %v", err)
 		return
 	}
 
-	//log.Printf("Sending players, json-payload is: %s", string(jsonData))
+	log.Printf("Sending players, json-payload is: %s", string(jsonData))
 
 	if err := c.WriteMessage(websocket.TextMessage, jsonData); err != nil {
 		log.Printf("ERROR while sending players as websocket-message: %v", err)
