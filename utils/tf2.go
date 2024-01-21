@@ -39,7 +39,7 @@ var (
 
 // PlayerInfo is a struct containing all the info we need about a player
 type PlayerInfo struct {
-	SteamID       int64
+	SteamID       int64 `json:"SteamID,string"`
 	Name          string
 	UserID        int
 	SteamAccType  string
