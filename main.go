@@ -107,7 +107,7 @@ func main() {
 
 		// Parse the line for player info
 		if playerInfo, err := utils.GrokParse(line.Text); err == nil {
-			log.Printf("%+v\n", *playerInfo)
+			// log.Printf("%+v\n", *playerInfo)
 
 			// Append the player to the player list
 			updatePlayers(playerInfo)
