@@ -25,6 +25,7 @@ var playersInGame []*utils.PlayerInfo
 // Holds the last tf_lobby_debug response for usage.
 var lastLobbyDebugResponse string
 var lastUpdate int64
+var currentPlayer string
 
 var websocketConnection *websocket.Conn
 
@@ -63,7 +64,9 @@ func main() {
 
 	// Get the current player name
 	res := network.RconExecute("name")
-	currentPlayer, err := utils.GrokParsePlayerName(res)
+
+	err := error(nil)
+	currentPlayer, err = utils.GrokParsePlayerName(res)
 
 	if err != nil {
 		log.Fatalf("%v Please restart the program", err)
@@ -192,6 +195,11 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 			playersInGame[i] = playerInfo
 			return
 		}
+	}
+
+	// If playerInfo is $ME, mark it as me.
+	if playerInfo.Name == currentPlayer {
+		playerInfo.IsMe = true
 	}
 
 	playersInGame = append(playersInGame, playerInfo)

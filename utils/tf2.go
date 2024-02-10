@@ -52,6 +52,7 @@ type PlayerInfo struct {
 	Team          string
 	MemberType    string
 	Type          string
+	IsMe          bool
 }
 
 // PlayerUpdate is a struct for player-updates over websockets, it has its dedicated type
