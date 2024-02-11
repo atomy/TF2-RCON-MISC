@@ -100,12 +100,14 @@ func main() {
 		// Refresh player list logic
 		// Don't assume status headlines as player connects
 		if strings.Contains(line.Text, "Lobby updated") || (strings.Contains(line.Text, "connected") && !strings.Contains(line.Text, "uniqueid")) {
-			log.Printf("Executing *status* command after line: %s", line.Text)
+			log.Printf("Executing *status* + *tf_lobby_debug* command after line: %s", line.Text)
 
 			// Clear the player list
 			playersInGame = []*utils.PlayerInfo{}
+
 			// Run the status command when the lobby is updated or a player connects
 			network.RconExecute("status")
+			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
 		}
 
 		// Parse the line for player info
@@ -163,6 +165,7 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	var lobbyPlayers []utils.LobbyDebugPlayer
 
 	if "Failed to find lobby shared object" != lastLobbyDebugResponse {
+		// log.Println("debug-response: " + lastLobbyDebugResponse)
 		lobbyPlayers = utils.ParseLobbyResponse(lastLobbyDebugResponse)
 	}
 
@@ -176,7 +179,7 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	lobbyPlayer := utils.FindLobbyPlayerBySteamId(lobbyPlayers, playerInfo.SteamID)
 
 	if lobbyPlayer != nil {
-		//log.Printf("dbg: %+v\n", lobbyPlayer)
+		// log.Printf("dbg: %+v\n", lobbyPlayer)
 		playerInfo.Team = lobbyPlayer.Team
 		playerInfo.Type = lobbyPlayer.Type
 		playerInfo.MemberType = lobbyPlayer.MemberType
