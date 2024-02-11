@@ -166,6 +166,13 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 		lobbyPlayers = utils.ParseLobbyResponse(lastLobbyDebugResponse)
 	}
 
+	// Find ourselves and set flag to true.
+	if playerInfo.Name == currentPlayer {
+		playerInfo.IsMe = true
+	} else {
+		playerInfo.IsMe = false
+	}
+
 	lobbyPlayer := utils.FindLobbyPlayerBySteamId(lobbyPlayers, playerInfo.SteamID)
 
 	if lobbyPlayer != nil {
