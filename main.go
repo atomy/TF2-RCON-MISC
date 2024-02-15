@@ -28,6 +28,7 @@ var lastUpdate int64
 var currentPlayer string
 
 var websocketConnection *websocket.Conn
+var triggerWebsocketPlayerUpdate = false
 
 func main() {
 	signals := setupSignalHandler()
@@ -51,6 +52,8 @@ func main() {
 
 	// Start websocket for IPC with UI-Client
 	go network.StartWebsocket(27689, onWebsocketConnectCallback)
+
+	websocketPlayerUpdaterTicker := startWebsocketPlayerUpdater()
 
 	// Init the grok patterns
 	utils.GrokInit()
@@ -102,9 +105,6 @@ func main() {
 		if strings.Contains(line.Text, "Lobby updated") || (strings.Contains(line.Text, "connected") && !strings.Contains(line.Text, "uniqueid")) {
 			log.Printf("Executing *status* + *tf_lobby_debug* command after line: %s", line.Text)
 
-			// Clear the player list
-			playersInGame = []*utils.PlayerInfo{}
-
 			// Run the status command when the lobby is updated or a player connects
 			network.RconExecute("status")
 			lastLobbyDebugResponse = network.RconExecute("tf_lobby_debug")
@@ -116,6 +116,7 @@ func main() {
 
 			// Append the player to the player list
 			updatePlayers(playerInfo)
+			expirePlayers()
 
 			// Create a player document for inserting into MongoDB
 			player := db.Player{
@@ -126,11 +127,7 @@ func main() {
 
 			// Add the player to the DB
 			db.AddPlayer(player)
-
-			// When websocket connected, send over the new players
-			if websocketConnection != nil {
-				network.SendPlayers(websocketConnection, playersInGame)
-			}
+			triggerWebsocketPlayerUpdate = true
 		}
 
 		// Parse the line for chat info
@@ -158,6 +155,24 @@ func main() {
 			}
 		}
 	}
+
+	defer websocketPlayerUpdaterTicker.Stop()
+}
+
+// expirePlayers scan all players and discard players that haven't been here for >=20 seconds
+func expirePlayers() {
+	var activePlayers []*utils.PlayerInfo
+	currentTime := time.Now().Unix()
+
+	for _, existingPlayer := range playersInGame {
+		// If player was seen in the last 20 seconds, keep him
+		if existingPlayer.LastSeen+20 >= currentTime {
+			activePlayers = append(activePlayers, existingPlayer)
+		}
+	}
+
+	// Replace the old playersInGame slice with the new activePlayers slice
+	playersInGame = activePlayers
 }
 
 // Update player collection with supplied new playerInfo entity.
@@ -247,4 +262,37 @@ func setupSignalHandler() chan os.Signal {
 
 	// Channel to notify the main logic to shut down
 	return signals
+}
+
+// sendPlayerUpdateWebsocket send the player-update over websockets.
+func sendPlayerUpdateWebsocket() {
+	// When websocket connected, send over the new players
+	if triggerWebsocketPlayerUpdate && websocketConnection != nil {
+		for _, playerInfo := range playersInGame {
+			if len(playerInfo.Team) > 0 {
+				//fmt.Printf("sendPlayerUpdateWebsocket() non-empty-player: %v\n", playerInfo)
+			} else {
+				fmt.Printf("sendPlayerUpdateWebsocket() empty-player: %v\n", playerInfo)
+			}
+		}
+
+		network.SendPlayers(websocketConnection, playersInGame)
+		triggerWebsocketPlayerUpdate = false
+	}
+}
+
+// startWebsocketPlayerUpdater start regular player-updater
+func startWebsocketPlayerUpdater() *time.Ticker {
+	ticker := time.NewTicker(1 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				sendPlayerUpdateWebsocket()
+			}
+		}
+	}()
+
+	return ticker
 }

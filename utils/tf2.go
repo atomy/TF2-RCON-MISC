@@ -358,14 +358,16 @@ func ParseLobbyResponse(in string) []LobbyDebugPlayer {
 
 // FindLobbyPlayerBySteamId searches for the given steamID within the supplied slice, if found, returns it
 func FindLobbyPlayerBySteamId(lobbyPlayers []LobbyDebugPlayer, steamID int64) *LobbyDebugPlayer {
-	// fmt.Printf("Searching for player '%s', in elements '%d'...\n", steamID, len(lobbyPlayers))
+	//fmt.Printf("Searching for player '%s', in elements '%d'...\n", steamID, len(lobbyPlayers))
 
 	// Iterate over the players in the slice
 	for _, lobbyPlayer := range lobbyPlayers {
 		if lobbyPlayer.SteamID == steamID {
+			//fmt.Printf(" FOUND (%s)! %v\n", steamID, &lobbyPlayer)
 			return &lobbyPlayer
 		}
 	}
 
+	//fmt.Printf(" NOT FOUND (%s)!\n", steamID)
 	return nil
 }
