@@ -2,7 +2,7 @@ package utils
 
 import (
 	"errors"
-	"log"
+	"github.com/algo7/tf2_rcon_misc/logger"
 	"math/big"
 	"os"
 	"os/user"
@@ -14,6 +14,9 @@ import (
 	"github.com/nxadm/tail"
 	"github.com/trivago/grok"
 )
+
+// Create a new instance of the logger.
+var log = logger.Logger
 
 // Global variables
 const (
@@ -358,16 +361,16 @@ func ParseLobbyResponse(in string) []LobbyDebugPlayer {
 
 // FindLobbyPlayerBySteamId searches for the given steamID within the supplied slice, if found, returns it
 func FindLobbyPlayerBySteamId(lobbyPlayers []LobbyDebugPlayer, steamID int64) *LobbyDebugPlayer {
-	//fmt.Printf("Searching for player '%s', in elements '%d'...\n", steamID, len(lobbyPlayers))
+	//log.Printf("Searching for player '%s', in elements '%d'...\n", steamID, len(lobbyPlayers))
 
 	// Iterate over the players in the slice
 	for _, lobbyPlayer := range lobbyPlayers {
 		if lobbyPlayer.SteamID == steamID {
-			//fmt.Printf(" FOUND (%s)! %v\n", steamID, &lobbyPlayer)
+			//log.Printf(" FOUND (%s)! %v\n", steamID, &lobbyPlayer)
 			return &lobbyPlayer
 		}
 	}
 
-	//fmt.Printf(" NOT FOUND (%s)!\n", steamID)
+	//log.Printf(" NOT FOUND (%s)!\n", steamID)
 	return nil
 }

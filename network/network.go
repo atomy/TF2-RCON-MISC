@@ -1,8 +1,6 @@
 package network
 
 import (
-	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -11,19 +9,8 @@ import (
 	"github.com/gorcon/rcon"
 )
 
-// Global variables
-var (
-	rconHost       string
-	RCONConnection *rcon.Conn
-)
-
-const (
-	rconPort = 27015
-)
-
 // scanPort scans for the given port on the host
 func scanPort(protocol, hostname string, port int) bool {
-
 	log.Printf("Connecting to: %s:%d\n", hostname, port)
 	address := hostname + ":" + strconv.Itoa(port)
 	RCONConnection, err := net.DialTimeout(protocol, address, 60*time.Second)
@@ -86,7 +73,7 @@ func determineRconHost() string {
 		return ""
 	}
 
-	fmt.Printf("Rcon Host: %s:%d\n", rconHost, rconPort)
+	log.Printf("Rcon Host: %s:%d\n", rconHost, rconPort)
 
 	return rconHost
 }
@@ -114,7 +101,7 @@ func rconConnect(rconHost string) *rcon.Conn {
 // RconExecute executes a rcon command
 func RconExecute(command string) string {
 
-	// fmt.Println("Executing: " + command)
+	// log.Println("Executing: " + command)
 	response, err := RCONConnection.Execute(command)
 
 	// Reconnect if the connection is lost (usually when joining a server)

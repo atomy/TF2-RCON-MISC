@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"github.com/algo7/tf2_rcon_misc/logger"
 	"github.com/gorilla/websocket"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,6 +14,9 @@ import (
 	"github.com/algo7/tf2_rcon_misc/network"
 	"github.com/algo7/tf2_rcon_misc/utils"
 )
+
+// Create a new instance of the logger.
+var log = logger.Logger
 
 // Const console message that informs you about forceful auto-balance.
 //const teamSwitchMessage = "You have switched to team BLU and will receive 500 experience points at the end of the round for changing teams."
@@ -36,15 +38,15 @@ func main() {
 	// Goroutine to handle signals
 	go func() {
 		sig := <-signals
-		fmt.Println("Signal received:", sig)
+		log.Println("Signal received:", sig)
 
 		// Notify the main logic to shut down
 		// Perform cleanup or shutdown procedures
-		fmt.Println("Performing graceful shutdown.")
+		log.Println("Performing graceful shutdown.")
 
 		if network.HttpServer != nil {
 			_ = network.HttpServer.Close()
-			fmt.Println("HttpServer closed.")
+			log.Println("HttpServer closed.")
 		}
 
 		os.Exit(0)
@@ -75,7 +77,7 @@ func main() {
 		log.Fatalf("%v Please restart the program", err)
 	}
 
-	log.Printf("Current player is %s", currentPlayer)
+	log.Printf("Current player is '%s'", currentPlayer)
 
 	// Get log path
 	tf2LogPath := utils.LogPathDection()
@@ -234,6 +236,7 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 // onWebsocketConnectCallback Callback that is called once websocket-connection has been established.
 func onWebsocketConnectCallback(c *websocket.Conn) {
 	websocketConnection = c
+	log.SetWsConnection(websocketConnection)
 	network.SendPlayers(c, playersInGame)
 }
 
@@ -270,9 +273,9 @@ func sendPlayerUpdateWebsocket() {
 	if triggerWebsocketPlayerUpdate && websocketConnection != nil {
 		for _, playerInfo := range playersInGame {
 			if len(playerInfo.Team) > 0 {
-				//fmt.Printf("sendPlayerUpdateWebsocket() non-empty-player: %v\n", playerInfo)
+				//log.Printf("sendPlayerUpdateWebsocket() non-empty-player: %v\n", playerInfo)
 			} else {
-				fmt.Printf("sendPlayerUpdateWebsocket() empty-player: %v\n", playerInfo)
+				log.Printf("sendPlayerUpdateWebsocket() empty-player: %v\n", playerInfo)
 			}
 		}
 
@@ -295,4 +298,8 @@ func startWebsocketPlayerUpdater() *time.Ticker {
 	}()
 
 	return ticker
+}
+
+func GetWebsocketConnection() *websocket.Conn {
+	return websocketConnection
 }

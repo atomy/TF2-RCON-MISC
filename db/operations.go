@@ -2,33 +2,10 @@ package db
 
 import (
 	"context"
-	"log"
-	"os"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-var (
-	// Database  name
-	mongoDBName = os.Getenv("MONGODB_NAME")
-)
-
-// Player document struct
-type Player struct {
-	SteamID   int64  `bson:"SteamID"`
-	Name      string `bson:"Name"`
-	UpdatedAt int64  `bson:"UpdatedAt"`
-}
-
-// Chat document struct
-type Chat struct {
-	SteamID   int64  `bson:"SteamID"`
-	Name      string `bson:"Name"`
-	Message   string `bson:"message,omitempty"`
-	UpdatedAt int64  `bson:"updatedAt"`
-}
 
 // AddPlayer adds a player to the database
 func AddPlayer(player Player) *mongo.UpdateResult {
@@ -66,7 +43,7 @@ func AddPlayer(player Player) *mongo.UpdateResult {
 		log.Printf("Error adding player to the DB: %v", err)
 	}
 
-	// fmt.Printf("Number of documents upserted: %v\n", result)
+	// log.Printf("Number of documents upserted: %v\n", result)
 	return result
 
 }
@@ -102,6 +79,6 @@ func AddChat(chat Chat) *mongo.InsertOneResult {
 		log.Printf("Error adding chat to the DB: %v", err)
 	}
 
-	// fmt.Printf("Number of documents upserted: %v\n", result)
+	// log.Printf("Number of documents upserted: %v\n", result)
 	return result
 }

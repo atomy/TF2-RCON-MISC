@@ -9,7 +9,7 @@
 // 	for _, player := range players {
 // 		// check if we found a player saying that in our playerlist
 // 		if len(in) > len(player.Name)+5 && in[1:len(player.Name)+1] == player.Name && in[len(player.Name)+1:len(player.Name)+2] == ":" {
-// 			fmt.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+3:])
+// 			log.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+3:])
 // 			return true, TrimCommon(player.Name), TrimCommon(in[len(player.Name)+3:])
 // 		}
 // 	}
@@ -156,7 +156,7 @@
 // 	}
 
 // 	if steamID == 0 {
-// 		fmt.Println("Failed to find steam ID for user:", userName)
+// 		log.Println("Failed to find steam ID for user:", userName)
 // 		os.Exit(1)
 // 	}
 
@@ -169,14 +169,14 @@
 // 	for _, player := range players {
 // 		// check if we found a player saying that in our playerlist
 // 		if len(in) > len(player.Name)+5 && in[0:len(player.Name)] == player.Name && in[len(player.Name)+1:len(player.Name)+2] == ":" {
-// 			fmt.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+4:])
+// 			log.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+4:])
 // 			return true, TrimCommon(player.Name), TrimCommon(in[len(player.Name)+4:])
 // 		}
 
 // 		// detect dead playertalk
 // 		// +6 is the len of string "*DEAD* "
 // 		if len(in) > len(player.Name)+5+7 && in[0:len(player.Name)+7] == "*DEAD* "+player.Name && in[len(player.Name)+7+1:len(player.Name)+7+2] == ":" {
-// 			fmt.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+4+7:])
+// 			log.Printf("CHAT: [%s] %s\n", player.Name, in[len(player.Name)+4+7:])
 // 			return true, TrimCommon(player.Name), TrimCommon(in[len(player.Name)+4+7:])
 // 		}
 // 	}
@@ -199,10 +199,10 @@
 
 // func PrintStackTrace(err error) {
 // 	// Print the error message
-// 	fmt.Println(err)
+// 	log.Println(err)
 
 // 	// Print the stack trace
 // 	buf := make([]byte, 4096)
 // 	runtime.Stack(buf, false)
-// 	fmt.Println(string(buf))
+// 	log.Println(string(buf))
 // }
