@@ -4,31 +4,11 @@ import (
 	"encoding/json"
 	"github.com/algo7/tf2_rcon_misc/utils"
 	"github.com/gorilla/websocket"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 )
-
-type CallbackFunc func(*websocket.Conn)
-
-type Message struct {
-	Type string `json:"type"`
-}
-
-const wsPath = "/websocket"
-
-var HttpServer *http.Server // Exported by capitalizing the first letter
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-var onConnectCallback CallbackFunc
 
 // StartWebsocket Startup websocket server for communication with electron UI.
 func StartWebsocket(port int, callback CallbackFunc) {

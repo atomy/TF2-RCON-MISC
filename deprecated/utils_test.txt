@@ -56,8 +56,8 @@
 // 			chatLines = append(chatLines, line)
 // 			chatUsers = append(chatUsers, player)
 // 			chatText = append(chatText, text)
-// 			fmt.Println("dbg1:", line)
-// 			fmt.Println("dbg2:", isSay, player, text)
+// 			log.Println("dbg1:", line)
+// 			log.Println("dbg2:", isSay, player, text)
 // 		}
 // 	}
 

@@ -2,16 +2,12 @@ package db
 
 import (
 	"context"
-	"log"
 	"os"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
-
-// Connect to the DB
-var client = connect()
 
 // connect to the database
 func connect() *mongo.Client {
