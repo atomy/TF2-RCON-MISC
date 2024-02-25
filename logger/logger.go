@@ -48,11 +48,9 @@ func (l *AppLogger) Log(m string) {
 // Printf formats and logs the given message with a timestamp
 func (l *AppLogger) Printf(format string, v ...interface{}) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	var buf bytes.Buffer
-	buf.WriteString("[" + timestamp + "] ")
-	buf.WriteString(format)
-	l.Logger.Printf(buf.String(), v...)
-	sendLogs(wsConnection, buf.String())
+	formattedMsg := fmt.Sprintf("["+timestamp+"] "+format, v...)
+	l.Logger.Printf(formattedMsg)
+	sendLogs(wsConnection, formattedMsg)
 }
 
 // Println logs the given message with a timestamp
