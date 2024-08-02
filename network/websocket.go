@@ -167,7 +167,7 @@ func processRawMessage(messageType int, p []byte) {
 // processJsonMessage Process incomming message over websockets that has already been json-decoded into a struct.
 func processJsonMessage(msg Message) {
 	// Exit message, telling us to shut down.
-	if msg.Type == "exit" && false { // %TODO
+	if msg.Type == "exit" {
 		os.Exit(0)
 	}
 }
