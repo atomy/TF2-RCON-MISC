@@ -175,7 +175,7 @@ func main() {
 			frag.VictimSteamID = strconv.FormatInt(victimSteamID, 10)
 			frag.KillerSteamID = strconv.FormatInt(killerSteamID, 10)
 
-			log.Printf("Frag: %+v\n", *frag)
+			//log.Printf("Frag: %+v\n", *frag)
 			network.SendFrag(websocketConnection, frag)
 
 			//// Get the player's steamID64 from the playersInGame
@@ -235,7 +235,7 @@ func updatePlayers(playerInfo *utils.PlayerInfo) {
 	lobbyPlayer := utils.FindLobbyPlayerBySteamId(lobbyPlayers, playerInfo.SteamID)
 
 	if lobbyPlayer != nil {
-		// log.Printf("dbg: %+v\n", lobbyPlayer)
+		//log.Printf("dbg: %+v\n", lobbyPlayer)
 		playerInfo.Team = lobbyPlayer.Team
 		playerInfo.Type = lobbyPlayer.Type
 		playerInfo.MemberType = lobbyPlayer.MemberType
