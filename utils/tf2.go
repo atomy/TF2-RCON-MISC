@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"github.com/algo7/tf2_rcon_misc/logger"
 	"math/big"
 	"os"
@@ -25,7 +26,10 @@ const (
 	grokCommandPattern    = `!%{WORD:command}\s{1}%{GREEDYDATA:args}(?:\r?\n?)?$`
 	grokChatPattern       = `(?:(?:\*DEAD\*(?:\(TEAM\))?)|(?:\(TEAM\)))?(?:\s{1})?%{GREEDYDATA:player_name}\s{1}:\s{2}%{GREEDYDATA:message}$`
 	grokLobbyPattern      = `^ +%{WORD:memberType}\[[0-9]+\] +\[%{WORD:steamAccType}:%{NUMBER:steamUniverse}:%{NUMBER:steamID32}\] +team = %{WORD:team} +type = %{WORD:type}$`
+	grokFragPattern       = `^%{GREEDYDATA:killer_name} killed %{GREEDYDATA:victim_name} with %{DATA:weapon}\.%{SPACE}*(%{DATA:crit})?$`
 )
+
+// %TODO, parse suicides
 
 var (
 	g            *grok.Grok
@@ -34,6 +38,8 @@ var (
 	gcPlayerName *grok.CompiledGrok
 	gChat        *grok.Grok
 	gcChat       *grok.CompiledGrok
+	gFrag        *grok.Grok
+	gcFrag       *grok.CompiledGrok
 	gLobby       *grok.Grok
 	gcLobby      *grok.CompiledGrok
 	gCommands    *grok.Grok
@@ -64,10 +70,26 @@ type PlayerUpdate struct {
 	CurrentPlayers []*PlayerInfo `json:"current-players"`
 }
 
+// FragWsInfo is a struct for player-updates over websockets, it has its dedicated type
+type FragWsInfo struct {
+	Type string    `json:"type"`
+	Frag *FragInfo `json:"frag"`
+}
+
 // ChatInfo is a struct containing all the info we need about a chat message
 type ChatInfo struct {
 	PlayerName string
 	Message    string
+}
+
+// FragInfo is a struct containing all the info we need about a chat message
+type FragInfo struct {
+	KillerName    string
+	VictimName    string
+	KillerSteamID string
+	VictimSteamID string
+	Weapon        string
+	Crit          bool
 }
 
 // LobbyDebugPlayer is a struct holding all the fields that come with tf_lobby_debug response
@@ -99,6 +121,10 @@ func GrokInit() {
 	// Compile the chat grok pattern
 	gChat, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
 	gcChat, _ = gChat.Compile(grokChatPattern)
+
+	// Compile the chat grok pattern
+	gFrag, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
+	gcFrag, _ = gFrag.Compile(grokFragPattern)
 
 	// Compile the lobby grok pattern
 	gLobby, _ = grok.New(grok.Config{NamedCapturesOnly: true, Patterns: GrokDefinitions})
@@ -189,6 +215,36 @@ func GrokParseChat(line string) (*ChatInfo, error) {
 	}
 
 	return &chatInfo, nil
+}
+
+// GrokParseFrag parses the given line with the frag grok pattern
+func GrokParseFrag(line string) (*FragInfo, error) {
+
+	parsed := gcFrag.ParseString(line)
+
+	if len(parsed) == 0 {
+		return nil, errors.New("failed to parse frag line")
+	}
+
+	killerName := parsed["killer_name"]
+	victimName := parsed["victim_name"]
+
+	// Call StringToBool and check for error
+	crit, err := IsCrit(parsed["crit"])
+	if err != nil {
+		panic(fmt.Sprintf("Error converting string to bool: %v", err))
+	}
+
+	weapon := parsed["weapon"]
+
+	fragInfo := FragInfo{
+		KillerName: killerName,
+		VictimName: victimName,
+		Crit:       crit,
+		Weapon:     weapon,
+	}
+
+	return &fragInfo, nil
 }
 
 // GrokParseLobby parses the given line with the lobby grok pattern

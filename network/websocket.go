@@ -53,6 +53,28 @@ func SendPlayers(c *websocket.Conn, players []*utils.PlayerInfo) {
 	}
 }
 
+// SendFrag, send new frag entries over the network
+func SendFrag(c *websocket.Conn, frag *utils.FragInfo) {
+	fragWsInfo := utils.FragWsInfo{
+		Type: "frag",
+		Frag: frag,
+	}
+
+	// Convert the frag data to a JSON string
+	jsonData, err := json.Marshal(fragWsInfo)
+	if err != nil {
+		log.Panicf("ERROR while marshalling frag as JSON: %v", err)
+		return
+	}
+
+	//log.Printf("Sending frag, json-payload is: %s", string(jsonData))
+
+	if err := c.WriteMessage(websocket.TextMessage, jsonData); err != nil {
+		log.Printf("ERROR while sending frag as websocket-message: %v", err)
+		return
+	}
+}
+
 // WebSocket handler
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -145,7 +167,7 @@ func processRawMessage(messageType int, p []byte) {
 // processJsonMessage Process incomming message over websockets that has already been json-decoded into a struct.
 func processJsonMessage(msg Message) {
 	// Exit message, telling us to shut down.
-	if msg.Type == "exit" {
+	if msg.Type == "exit" && false { // %TODO
 		os.Exit(0)
 	}
 }

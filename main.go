@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -156,6 +157,44 @@ func main() {
 				db.AddChat(chatInfo)
 			}
 		}
+
+		// Parse the line for kill info
+		if frag, err := utils.GrokParseFrag(line.Text); err == nil {
+
+			// Get the player's steamID64 from the playersInGame
+			killerSteamID, err := utils.GetSteamIDFromPlayerName(frag.KillerName, playersInGame)
+			if err != nil {
+				log.Printf("Error finding steam-id for player %s: %v", frag.KillerName, err)
+			}
+
+			victimSteamID, err := utils.GetSteamIDFromPlayerName(frag.VictimName, playersInGame)
+			if err != nil {
+				log.Printf("Error finding steam-id for player %s: %v", frag.VictimName, err)
+			}
+
+			frag.VictimSteamID = strconv.FormatInt(victimSteamID, 10)
+			frag.KillerSteamID = strconv.FormatInt(killerSteamID, 10)
+
+			log.Printf("Frag: %+v\n", *frag)
+			network.SendFrag(websocketConnection, frag)
+
+			//// Get the player's steamID64 from the playersInGame
+			//steamIDKiller, err := utils.GetSteamIDFromPlayerName(frag.KillerName, playersInGame)
+			//steamIDVictim, err := utils.GetSteamIDFromPlayerName(frag.VictimName, playersInGame)
+
+			// TODO, add frags to db
+			//if err == nil {
+			//	// Create a frag document for inserting into MongoDB
+			//	fragInfo := db.Frag{
+			//		SteamIDKiller: steamIDKiller,
+			//		SteamIDVictim: steamIDVictim,
+			//		Killer:        frag.KillerName,
+			//		VictimName:    frag.VictimName,
+			//		UpdatedAt:     time.Now().UnixNano(),
+			//	}
+			//	db.AddFrag(chatInfo)
+			//}
+		}
 	}
 
 	defer websocketPlayerUpdaterTicker.Stop()
@@ -275,7 +314,7 @@ func sendPlayerUpdateWebsocket() {
 			if len(playerInfo.Team) > 0 {
 				//log.Printf("sendPlayerUpdateWebsocket() non-empty-player: %v\n", playerInfo)
 			} else {
-				log.Printf("sendPlayerUpdateWebsocket() empty-player: %v\n", playerInfo)
+				//log.Printf("sendPlayerUpdateWebsocket() empty-player: %v\n", playerInfo)
 			}
 		}
 
